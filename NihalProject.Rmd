@@ -1,0 +1,62 @@
+---
+title: "Prediction Assignment"
+output: html_document
+date: "2023-04-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Extraction and Preparation
+
+Extract Data from Csv Files and remove columns with NA values, remove unecessary columns, remove low variance columns
+```{r Data Extraction and Preparation}
+#install.packages("caret")
+library(caret)
+dataTrain <- read.csv('./pml-training.csv')
+dataValidation <- read.csv("./pml-testing.csv")
+
+#install.packages("psych")
+library(psych)
+#colnames(dataTrain)
+#describe(dataTrain)
+
+naIdx <- sapply(dataTrain, function(x) mean(is.na(x))) == 0
+training <- dataTrain[, colSums(is.na(dataTrain)) == 0] 
+validation <- dataValidation[,naIdx == T]
+#validation <- dataValidation[, colSums(is.na(dataValidation)) == 0] 
+
+training <- training[, -(1:5)]
+validation <- validation[, -(1:5)]
+
+lowVarIdx <- nearZeroVar(training)
+training <- training[, -lowVarIdx]
+validation <- validation[, -lowVarIdx]
+```
+## Training Random Forest Model with Cross Validation
+
+Split training data for cross validation tuning of parameters. Fit Random Forest model and visualize error (performance)
+```{r Building Random Forest Model}
+set.seed(10)
+trainSplitIdx <- createDataPartition(y=training$classe, p=0.70, list=FALSE)
+train_data <- training[trainSplitIdx, ]
+test_data <- training[-trainSplitIdx, ]
+
+library(randomForest)
+fitCon <- trainControl(method="cv", number=3)
+fit <- train(classe ~ ., data=train_data, trControl=fitCon, method="rf",ntree=90)
+modRF <- fit
+modRF$finalModel
+
+predTest <- predict(modRF, newdata=test_data)
+confusionMatrix(as.factor(test_data$classe), predTest)
+
+predVal <- predict(modRF, newdata=validation)
+#confusionMatrix(as.factor(test_data$classe), predVal)
+```
+
+We have obtained a 99% accuracy and for the out of sample training data which is a very strong result. 
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
